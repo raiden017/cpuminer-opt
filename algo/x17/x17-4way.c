@@ -74,9 +74,7 @@ void x17_8way_hash( void *state, const void *input )
 
      blake512_8way_full( &ctx.blake, vhash, input, 80 );
 
-     bmw512_8way_init( &ctx.bmw );
-     bmw512_8way_update( &ctx.bmw, vhash, 64 );
-     bmw512_8way_close( &ctx.bmw, vhash );
+     bmw512_8way_full( &ctx.bmw, vhash, vhash, 64 );
 
 #if defined(__VAES__)
 
@@ -106,9 +104,7 @@ void x17_8way_hash( void *state, const void *input )
 
 #endif
 
-     skein512_8way_init( &ctx.skein );
-     skein512_8way_update( &ctx.skein, vhash, 64 );
-     skein512_8way_close( &ctx.skein, vhash );
+     skein512_8way_full( &ctx.skein, vhash, vhash, 64 );
 
      jh512_8way_init( &ctx.jh );
      jh512_8way_update( &ctx.jh, vhash, 64 );
@@ -287,18 +283,18 @@ void x17_8way_hash( void *state, const void *input )
 int scanhash_x17_8way( struct work *work, uint32_t max_nonce,
                        uint64_t *hashes_done, struct thr_info *mythr )
 {
-   uint32_t hash[8*16] __attribute__ ((aligned (128)));
-   uint32_t vdata[24*8] __attribute__ ((aligned (64)));
+   uint32_t hash[8*8] __attribute__ ((aligned (128)));
+   uint32_t vdata[20*8] __attribute__ ((aligned (64)));
    uint32_t lane_hash[8] __attribute__ ((aligned (64)));
-   uint32_t *hash7 = &(hash[7<<3]);
+   uint32_t *hashd7 = &(hash[7*8]);
    uint32_t *pdata = work->data;
    const uint32_t *ptarget = work->target;
    const uint32_t first_nonce = pdata[19];
    const uint32_t last_nonce = max_nonce - 8;
-   __m512i  *noncev = (__m512i*)vdata + 9;   // aligned
+   __m512i  *noncev = (__m512i*)vdata + 9; 
    uint32_t n = first_nonce;
    const int thr_id = mythr->id;
-   const uint32_t Htarg = ptarget[7];
+   const uint32_t targ32 = ptarget[7];
    const bool bench = opt_benchmark;
 
    mm512_bswap32_intrlv80_8x64( vdata, pdata );
@@ -310,7 +306,7 @@ int scanhash_x17_8way( struct work *work, uint32_t max_nonce,
       x17_8way_hash( hash, vdata );
 
       for ( int lane = 0; lane < 8; lane++ )
-      if ( unlikely( ( hash7[ lane ] <= Htarg ) && !bench ) )
+      if ( unlikely( ( hashd7[ lane ] <= targ32 ) && !bench ) )
       {
          extr_lane_8x32( lane_hash, hash, lane, 256 );
          if ( likely( valid_hash( lane_hash, ptarget ) ) )
@@ -378,9 +374,7 @@ void x17_4way_hash( void *state, const void *input )
 
      intrlv_4x64_512( vhash, hash0, hash1, hash2, hash3 );
 
-     skein512_4way_init( &ctx.skein );
-     skein512_4way_update( &ctx.skein, vhash, 64 );
-     skein512_4way_close( &ctx.skein, vhash );
+     skein512_4way_full( &ctx.skein, vhash, vhash, 64 );
 
      jh512_4way_init( &ctx.jh );
      jh512_4way_update( &ctx.jh, vhash, 64 );
@@ -474,18 +468,18 @@ void x17_4way_hash( void *state, const void *input )
 int scanhash_x17_4way( struct work *work, uint32_t max_nonce,
                        uint64_t *hashes_done, struct thr_info *mythr )
 {
-   uint32_t hash[16*4] __attribute__ ((aligned (64)));
+   uint32_t hash[8*4] __attribute__ ((aligned (64)));
    uint32_t vdata[20*4] __attribute__ ((aligned (64)));
    uint32_t lane_hash[8] __attribute__ ((aligned (64)));
-   uint32_t *hash7 = &(hash[7<<2]);
+   uint32_t *hashd7 = &(hash[ 7*4 ]);
    uint32_t *pdata = work->data;
    const uint32_t *ptarget = work->target;
    const uint32_t first_nonce = pdata[19];
-   const uint32_t last_nonce = max_nonce -4;
-   __m256i  *noncev = (__m256i*)vdata + 9;   // aligned
+   const uint32_t last_nonce = max_nonce - 4;
+   __m256i  *noncev = (__m256i*)vdata + 9;
    uint32_t n = first_nonce;
    const int thr_id = mythr->id;
-   const uint32_t Htarg = ptarget[7];
+   const uint32_t targ32 = ptarget[7];
    const bool bench = opt_benchmark;
 
    mm256_bswap32_intrlv80_4x64( vdata, pdata );
@@ -496,7 +490,7 @@ int scanhash_x17_4way( struct work *work, uint32_t max_nonce,
       x17_4way_hash( hash, vdata );
 
       for ( int lane = 0; lane < 4; lane++ )
-      if ( unlikely( hash7[ lane ] <= Htarg && !bench ) )
+      if ( unlikely( hashd7[ lane ] <= targ32 && !bench ) )
       {  
          extr_lane_4x32( lane_hash, hash, lane, 256 );
          if ( valid_hash( lane_hash, ptarget ) )
